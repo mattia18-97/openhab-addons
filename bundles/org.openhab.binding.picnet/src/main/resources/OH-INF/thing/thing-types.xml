@@ -1,0 +1,509 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="picnet"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
+	xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
+
+	<!-- PicNet Bridge -->
+	<bridge-type id="bridge">
+		<label>PicNet Bridge</label>
+		<description>Bridge to connect to PicNet system via Sapp protocol</description>
+
+		<config-description>
+			<parameter name="hostname" type="text" required="true">
+				<context>network-address</context>
+				<label>Hostname</label>
+				<description>Hostname or IP address of the PicNet device</description>
+			</parameter>
+			<parameter name="port" type="integer" required="true">
+				<label>Port</label>
+				<description>TCP port of the PicNet device</description>
+				<default>7001</default>
+			</parameter>
+			<parameter name="refreshInterval" type="integer" unit="ms" min="100" max="60000">
+				<label>Refresh Interval</label>
+				<description>Interval the device is polled in milliseconds</description>
+				<default>1000</default>
+				<advanced>true</advanced>
+			</parameter>
+		</config-description>
+	</bridge-type>
+
+	<!-- Virtual Thing Type -->
+	<thing-type id="virtual">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="bridge"/>
+		</supported-bridge-type-refs>
+
+		<label>PicNet Virtual</label>
+		<description>Virtual address in PicNet system (read/write)</description>
+
+		<channels>
+			<!-- Word and Signed -->
+			<channel id="word" typeId="number-word">
+				<label>Word Value</label>
+				<description>Full 16-bit word value (0-65535)</description>
+			</channel>
+			<channel id="signedWord" typeId="number-signed">
+				<label>Signed Word</label>
+				<description>Signed 16-bit value (-32768 to 32767)</description>
+			</channel>
+
+			<!-- Bytes -->
+			<channel id="highByte" typeId="number-byte-static">
+				<label>High Byte</label>
+				<description>High byte (0-255)</description>
+			</channel>
+			<channel id="lowByte" typeId="number-byte-static">
+				<label>Low Byte</label>
+				<description>Low byte (0-255)</description>
+			</channel>
+			<channel id="highByteSigned" typeId="number-byte-static">
+				<label>High Byte Signed</label>
+				<description>High byte signed (-128 to 127)</description>
+			</channel>
+			<channel id="lowByteSigned" typeId="number-byte-static">
+				<label>Low Byte Signed</label>
+				<description>Low byte signed (-128 to 127)</description>
+			</channel>
+
+			<!-- Bits as Switches (for Virtual write) -->
+			<channel id="bit1" typeId="switch-bit-static">
+				<label>Bit 1</label>
+			</channel>
+			<channel id="bit2" typeId="switch-bit-static">
+				<label>Bit 2</label>
+			</channel>
+			<channel id="bit3" typeId="switch-bit-static">
+				<label>Bit 3</label>
+			</channel>
+			<channel id="bit4" typeId="switch-bit-static">
+				<label>Bit 4</label>
+			</channel>
+			<channel id="bit5" typeId="switch-bit-static">
+				<label>Bit 5</label>
+			</channel>
+			<channel id="bit6" typeId="switch-bit-static">
+				<label>Bit 6</label>
+			</channel>
+			<channel id="bit7" typeId="switch-bit-static">
+				<label>Bit 7</label>
+			</channel>
+			<channel id="bit8" typeId="switch-bit-static">
+				<label>Bit 8</label>
+			</channel>
+			<channel id="bit9" typeId="switch-bit-static">
+				<label>Bit 9</label>
+			</channel>
+			<channel id="bit10" typeId="switch-bit-static">
+				<label>Bit 10</label>
+			</channel>
+			<channel id="bit11" typeId="switch-bit-static">
+				<label>Bit 11</label>
+			</channel>
+			<channel id="bit12" typeId="switch-bit-static">
+				<label>Bit 12</label>
+			</channel>
+			<channel id="bit13" typeId="switch-bit-static">
+				<label>Bit 13</label>
+			</channel>
+			<channel id="bit14" typeId="switch-bit-static">
+				<label>Bit 14</label>
+			</channel>
+			<channel id="bit15" typeId="switch-bit-static">
+				<label>Bit 15</label>
+			</channel>
+			<channel id="bit16" typeId="switch-bit-static">
+				<label>Bit 16</label>
+			</channel>
+		</channels>
+
+		<config-description>
+			<parameter name="address" type="integer" required="true" min="1" max="2500">
+				<label>Virtual Address</label>
+				<description>Virtual address number (1-2500)</description>
+			</parameter>
+		</config-description>
+	</thing-type>
+
+	<!-- Input Module Thing Type -->
+	<thing-type id="input">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="bridge"/>
+		</supported-bridge-type-refs>
+
+		<label>PicNet Input Module</label>
+		<description>Input module in PicNet system (read-only)</description>
+
+		<channels>
+			<!-- Word and Signed -->
+			<channel id="word" typeId="number-word">
+				<label>Word Value</label>
+				<description>Full 16-bit word value (0-65535)</description>
+			</channel>
+			<channel id="signedWord" typeId="number-signed">
+				<label>Signed Word</label>
+				<description>Signed 16-bit value (-32768 to 32767)</description>
+			</channel>
+
+			<!-- Bytes -->
+			<channel id="highByte" typeId="number-byte-static">
+				<label>High Byte</label>
+				<description>High byte (0-255)</description>
+			</channel>
+			<channel id="lowByte" typeId="number-byte-static">
+				<label>Low Byte</label>
+				<description>Low byte (0-255)</description>
+			</channel>
+			<channel id="highByteSigned" typeId="number-byte-static">
+				<label>High Byte Signed</label>
+				<description>High byte signed (-128 to 127)</description>
+			</channel>
+			<channel id="lowByteSigned" typeId="number-byte-static">
+				<label>Low Byte Signed</label>
+				<description>Low byte signed (-128 to 127)</description>
+			</channel>
+
+			<!-- Bits as Contacts (read-only) -->
+			<channel id="bit1" typeId="contact-bit-static">
+				<label>Bit 1</label>
+			</channel>
+			<channel id="bit2" typeId="contact-bit-static">
+				<label>Bit 2</label>
+			</channel>
+			<channel id="bit3" typeId="contact-bit-static">
+				<label>Bit 3</label>
+			</channel>
+			<channel id="bit4" typeId="contact-bit-static">
+				<label>Bit 4</label>
+			</channel>
+			<channel id="bit5" typeId="contact-bit-static">
+				<label>Bit 5</label>
+			</channel>
+			<channel id="bit6" typeId="contact-bit-static">
+				<label>Bit 6</label>
+			</channel>
+			<channel id="bit7" typeId="contact-bit-static">
+				<label>Bit 7</label>
+			</channel>
+			<channel id="bit8" typeId="contact-bit-static">
+				<label>Bit 8</label>
+			</channel>
+			<channel id="bit9" typeId="contact-bit-static">
+				<label>Bit 9</label>
+			</channel>
+			<channel id="bit10" typeId="contact-bit-static">
+				<label>Bit 10</label>
+			</channel>
+			<channel id="bit11" typeId="contact-bit-static">
+				<label>Bit 11</label>
+			</channel>
+			<channel id="bit12" typeId="contact-bit-static">
+				<label>Bit 12</label>
+			</channel>
+			<channel id="bit13" typeId="contact-bit-static">
+				<label>Bit 13</label>
+			</channel>
+			<channel id="bit14" typeId="contact-bit-static">
+				<label>Bit 14</label>
+			</channel>
+			<channel id="bit15" typeId="contact-bit-static">
+				<label>Bit 15</label>
+			</channel>
+			<channel id="bit16" typeId="contact-bit-static">
+				<label>Bit 16</label>
+			</channel>
+		</channels>
+
+		<config-description>
+			<parameter name="address" type="integer" required="true" min="1" max="250">
+				<label>Module Address</label>
+				<description>Input module address (1-250)</description>
+			</parameter>
+		</config-description>
+	</thing-type>
+
+	<!-- Output Module Thing Type -->
+	<thing-type id="output">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="bridge"/>
+		</supported-bridge-type-refs>
+
+		<label>PicNet Output Module</label>
+		<description>Output module in PicNet system (read-only)</description>
+
+		<channels>
+			<!-- Word and Signed -->
+			<channel id="word" typeId="number-word">
+				<label>Word Value</label>
+				<description>Full 16-bit word value (0-65535)</description>
+			</channel>
+			<channel id="signedWord" typeId="number-signed">
+				<label>Signed Word</label>
+				<description>Signed 16-bit value (-32768 to 32767)</description>
+			</channel>
+
+			<!-- Bytes -->
+			<channel id="highByte" typeId="number-byte-static">
+				<label>High Byte</label>
+				<description>High byte (0-255)</description>
+			</channel>
+			<channel id="lowByte" typeId="number-byte-static">
+				<label>Low Byte</label>
+				<description>Low byte (0-255)</description>
+			</channel>
+			<channel id="highByteSigned" typeId="number-byte-static">
+				<label>High Byte Signed</label>
+				<description>High byte signed (-128 to 127)</description>
+			</channel>
+			<channel id="lowByteSigned" typeId="number-byte-static">
+				<label>Low Byte Signed</label>
+				<description>Low byte signed (-128 to 127)</description>
+			</channel>
+
+			<!-- Bits as Contacts (read-only) -->
+			<channel id="bit1" typeId="contact-bit-static">
+				<label>Bit 1</label>
+			</channel>
+			<channel id="bit2" typeId="contact-bit-static">
+				<label>Bit 2</label>
+			</channel>
+			<channel id="bit3" typeId="contact-bit-static">
+				<label>Bit 3</label>
+			</channel>
+			<channel id="bit4" typeId="contact-bit-static">
+				<label>Bit 4</label>
+			</channel>
+			<channel id="bit5" typeId="contact-bit-static">
+				<label>Bit 5</label>
+			</channel>
+			<channel id="bit6" typeId="contact-bit-static">
+				<label>Bit 6</label>
+			</channel>
+			<channel id="bit7" typeId="contact-bit-static">
+				<label>Bit 7</label>
+			</channel>
+			<channel id="bit8" typeId="contact-bit-static">
+				<label>Bit 8</label>
+			</channel>
+			<channel id="bit9" typeId="contact-bit-static">
+				<label>Bit 9</label>
+			</channel>
+			<channel id="bit10" typeId="contact-bit-static">
+				<label>Bit 10</label>
+			</channel>
+			<channel id="bit11" typeId="contact-bit-static">
+				<label>Bit 11</label>
+			</channel>
+			<channel id="bit12" typeId="contact-bit-static">
+				<label>Bit 12</label>
+			</channel>
+			<channel id="bit13" typeId="contact-bit-static">
+				<label>Bit 13</label>
+			</channel>
+			<channel id="bit14" typeId="contact-bit-static">
+				<label>Bit 14</label>
+			</channel>
+			<channel id="bit15" typeId="contact-bit-static">
+				<label>Bit 15</label>
+			</channel>
+			<channel id="bit16" typeId="contact-bit-static">
+				<label>Bit 16</label>
+			</channel>
+		</channels>
+
+		<config-description>
+			<parameter name="address" type="integer" required="true" min="1" max="250">
+				<label>Module Address</label>
+				<description>Output module address (1-250)</description>
+			</parameter>
+		</config-description>
+	</thing-type>
+
+	<!-- Light Thing Type (single light control) -->
+	<thing-type id="light">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="bridge"/>
+		</supported-bridge-type-refs>
+
+		<label>PicNet Light</label>
+		<description>A single light (reads status from Input/Output/Virtual, writes commands to Virtual address)</description>
+
+		<channels>
+			<channel id="switch" typeId="system.power">
+				<label>Light Switch</label>
+				<description>Turn the light on or off</description>
+			</channel>
+		</channels>
+
+		<config-description>
+			<parameter name="readType" type="text" required="true">
+				<label>Read Type</label>
+				<description>Type of address to read light status from</description>
+				<options>
+					<option value="input">Input Module</option>
+					<option value="output">Output Module</option>
+					<option value="virtual">Virtual Address</option>
+				</options>
+				<default>output</default>
+			</parameter>
+			<parameter name="readAddress" type="integer" required="true" min="1" max="2500">
+				<label>Read Address</label>
+				<description>Address to read the light status from (1-250 for Input/Output, 1-2500 for Virtual)</description>
+			</parameter>
+			<parameter name="readBit" type="integer" required="true" min="1" max="16">
+				<label>Read Bit Number</label>
+				<description>Bit number to read light status from (1-16)</description>
+				<default>1</default>
+			</parameter>
+			<parameter name="virtualAddress" type="integer" required="true" min="1" max="2500">
+				<label>Virtual Address</label>
+				<description>Virtual address to write light commands to (1-2500)</description>
+			</parameter>
+			<parameter name="writeBit" type="integer" required="true" min="1" max="16">
+				<label>Write Bit Number</label>
+				<description>Bit number to write light commands to (1-16)</description>
+				<default>1</default>
+			</parameter>
+			<parameter name="pulseMode" type="boolean" required="false">
+				<label>Pulse Mode</label>
+				<description>Send a pulse (1) for both ON and OFF commands, like a momentary push button</description>
+				<default>false</default>
+			</parameter>
+		</config-description>
+	</thing-type>
+
+	<!-- Channel Types -->
+
+	<!-- Number Word Channel -->
+	<channel-type id="number-word">
+		<item-type>Number</item-type>
+		<label>Word Value</label>
+		<description>16-bit word value (0-65535)</description>
+		<state readOnly="false" min="0" max="65535" pattern="%d"/>
+	</channel-type>
+
+	<!-- Switch Linked Channel -->
+	<channel-type id="switch-linked">
+		<item-type>Switch</item-type>
+		<label>Switch</label>
+		<description>Switch control linked to read address and write virtual</description>
+
+		<config-description>
+			<parameter name="readFrom" type="text" required="true">
+				<label>Read From</label>
+				<description>Read address in format TYPE:ADDRESS:SUBADDRESS (e.g., O:60:1 or V:200:*)</description>
+			</parameter>
+			<parameter name="writeBit" type="integer" required="true" min="1" max="16">
+				<label>Write Bit</label>
+				<description>Bit position to write on the Virtual address (1-16)</description>
+			</parameter>
+			<parameter name="onValue" type="integer">
+				<label>ON Value</label>
+				<description>Value to send for ON command</description>
+				<default>1</default>
+			</parameter>
+			<parameter name="offValue" type="integer">
+				<label>OFF Value</label>
+				<description>Value to send for OFF command</description>
+				<default>1</default>
+			</parameter>
+		</config-description>
+	</channel-type>
+
+	<!-- Contact Channel -->
+	<channel-type id="contact-bit">
+		<item-type>Contact</item-type>
+		<label>Contact</label>
+		<description>Contact sensor (bit value)</description>
+
+		<config-description>
+			<parameter name="bit" type="integer" required="true" min="1" max="16">
+				<label>Bit Position</label>
+				<description>Bit position to read (1-16)</description>
+			</parameter>
+			<parameter name="inverted" type="boolean">
+				<label>Inverted</label>
+				<description>Invert the contact state (NC contact)</description>
+				<default>true</default>
+			</parameter>
+		</config-description>
+	</channel-type>
+
+	<!-- Switch Bit Channel -->
+	<channel-type id="switch-bit">
+		<item-type>Switch</item-type>
+		<label>Switch Bit</label>
+		<description>Switch control for a single bit (only for Virtual addresses)</description>
+
+		<config-description>
+			<parameter name="bit" type="integer" required="true" min="1" max="16">
+				<label>Bit Position</label>
+				<description>Bit position to control (1-16)</description>
+			</parameter>
+			<parameter name="onValue" type="integer">
+				<label>ON Value</label>
+				<description>Value to send for ON command (0 or 1)</description>
+				<default>1</default>
+			</parameter>
+			<parameter name="offValue" type="integer">
+				<label>OFF Value</label>
+				<description>Value to send for OFF command (0 or 1)</description>
+				<default>1</default>
+			</parameter>
+		</config-description>
+	</channel-type>
+
+	<!-- Number Byte Channel -->
+	<channel-type id="number-byte">
+		<item-type>Number</item-type>
+		<label>Byte Value</label>
+		<description>8-bit byte value (0-255 or -128 to 127 if signed)</description>
+
+		<config-description>
+			<parameter name="subAddress" type="text" required="true">
+				<label>Sub Address</label>
+				<description>Byte to read: H (high byte), L (low byte), H+ (signed high), L+ (signed low)</description>
+				<options>
+					<option value="H">High Byte (0-255)</option>
+					<option value="L">Low Byte (0-255)</option>
+					<option value="H+">High Byte Signed (-128 to 127)</option>
+					<option value="L+">Low Byte Signed (-128 to 127)</option>
+				</options>
+			</parameter>
+		</config-description>
+	</channel-type>
+
+	<!-- Number Signed Channel -->
+	<channel-type id="number-signed">
+		<item-type>Number</item-type>
+		<label>Signed Word Value</label>
+		<description>16-bit signed word value (-32768 to 32767)</description>
+		<state readOnly="false" min="-32768" max="32767" pattern="%d"/>
+	</channel-type>
+
+	<!-- Static Channel Types (no configuration needed) -->
+
+	<!-- Static Switch Bit (for Virtual) -->
+	<channel-type id="switch-bit-static">
+		<item-type>Switch</item-type>
+		<label>Bit Switch</label>
+		<description>Switch for a single bit</description>
+	</channel-type>
+
+	<!-- Static Contact Bit (for Input/Output) -->
+	<channel-type id="contact-bit-static">
+		<item-type>Contact</item-type>
+		<label>Bit Contact</label>
+		<description>Contact for a single bit (inverted by default)</description>
+	</channel-type>
+
+	<!-- Static Number Byte -->
+	<channel-type id="number-byte-static">
+		<item-type>Number</item-type>
+		<label>Byte Value</label>
+		<description>8-bit value</description>
+		<state pattern="%d"/>
+	</channel-type>
+
+</thing:thing-descriptions>
