@@ -56,9 +56,12 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
     private final Logger logger = LoggerFactory.getLogger(PicNetBridgeHandler.class);
     private final Object connectionLock = new Object();
 
+    private static final int RECONNECT_DELAY_SECONDS = 30;
+
     private @Nullable PicNetBridgeConfiguration config;
     private @Nullable SappConnection connection;
     private @Nullable ScheduledFuture<?> pollingJob;
+    private @Nullable ScheduledFuture<?> reconnectJob;
 
     public PicNetBridgeHandler(Bridge bridge) {
         super(bridge);
@@ -92,6 +95,7 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
     @Override
     public void dispose() {
         stopPolling();
+        stopReconnect();
         disconnect();
         super.dispose();
     }
@@ -110,18 +114,21 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
             if (localConnection.isConnected()) {
                 updateStatus(ThingStatus.ONLINE);
                 updateChildThingsStatus(ThingStatus.ONLINE);
+                stopReconnect(); // Cancel any pending reconnect attempts
                 logger.info("Successfully connected to PicNet device at {}:{}", localConfig.hostname, localConfig.port);
                 startPolling();
             } else {
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                        "Failed to establish connection");
+                        "Failed to establish connection - will retry in " + RECONNECT_DELAY_SECONDS + " seconds");
                 updateChildThingsStatus(ThingStatus.OFFLINE);
+                scheduleReconnect();
             }
         } catch (IOException e) {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                    "Connection error: " + e.getMessage());
+                    "Connection error: " + e.getMessage() + " - will retry in " + RECONNECT_DELAY_SECONDS + " seconds");
             updateChildThingsStatus(ThingStatus.OFFLINE);
             logger.debug("Connection error", e);
+            scheduleReconnect();
         }
     }
 
@@ -150,6 +157,21 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
             localPollingJob.cancel(true);
             pollingJob = null;
             logger.debug("Stopped polling");
+        }
+    }
+
+    private void scheduleReconnect() {
+        stopReconnect(); // Cancel any existing reconnect job
+        reconnectJob = scheduler.schedule(this::connect, RECONNECT_DELAY_SECONDS, TimeUnit.SECONDS);
+        logger.debug("Scheduled reconnection attempt in {} seconds", RECONNECT_DELAY_SECONDS);
+    }
+
+    private void stopReconnect() {
+        ScheduledFuture<?> localReconnectJob = reconnectJob;
+        if (localReconnectJob != null && !localReconnectJob.isCancelled()) {
+            localReconnectJob.cancel(true);
+            reconnectJob = null;
+            logger.debug("Cancelled pending reconnection attempt");
         }
     }
 
