@@ -32,6 +32,7 @@ import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
+import org.openhab.core.thing.ThingStatusInfo;
 import org.openhab.core.thing.binding.BaseBridgeHandler;
 import org.openhab.core.thing.binding.ThingHandler;
 import org.openhab.core.types.Command;
@@ -108,15 +109,18 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
 
             if (localConnection.isConnected()) {
                 updateStatus(ThingStatus.ONLINE);
+                updateChildThingsStatus(ThingStatus.ONLINE);
                 logger.info("Successfully connected to PicNet device at {}:{}", localConfig.hostname, localConfig.port);
                 startPolling();
             } else {
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                         "Failed to establish connection");
+                updateChildThingsStatus(ThingStatus.OFFLINE);
             }
         } catch (IOException e) {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     "Connection error: " + e.getMessage());
+            updateChildThingsStatus(ThingStatus.OFFLINE);
             logger.debug("Connection error", e);
         }
     }
@@ -161,6 +165,7 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
             if (!localConnection.isConnected()) {
                 logger.debug("Connection lost, attempting to reconnect...");
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Connection lost");
+                updateChildThingsStatus(ThingStatus.OFFLINE);
                 connect();
                 return;
             }
@@ -229,6 +234,7 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
                             e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
                     updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                             "Connection error - reconnecting");
+                    updateChildThingsStatus(ThingStatus.OFFLINE);
                     disconnect();
                     scheduler.schedule(this::connect, 5, TimeUnit.SECONDS);
                 } else {
@@ -398,6 +404,24 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
         return lowerMessage.contains("broken pipe") || lowerMessage.contains("connection reset")
                 || lowerMessage.contains("connection closed") || lowerMessage.contains("socket closed")
                 || lowerMessage.contains("connection refused") || lowerMessage.contains("connection timed out");
+    }
+
+    /**
+     * Update status of all child things when bridge status changes
+     *
+     * @param status the status to set (ONLINE or OFFLINE)
+     */
+    private void updateChildThingsStatus(ThingStatus status) {
+        for (Thing thing : getThing().getThings()) {
+            if (status == ThingStatus.ONLINE) {
+                // When bridge comes online, set children to ONLINE
+                thing.setStatusInfo(new ThingStatusInfo(ThingStatus.ONLINE, ThingStatusDetail.NONE, null));
+            } else {
+                // When bridge goes offline, set children to OFFLINE with BRIDGE_OFFLINE detail
+                thing.setStatusInfo(new ThingStatusInfo(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE, null));
+            }
+        }
+        logger.debug("Updated {} child things to status {}", getThing().getThings().size(), status);
     }
 
     /**
