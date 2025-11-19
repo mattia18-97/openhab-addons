@@ -221,8 +221,23 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 logger.debug("Polling interrupted");
+            } catch (RuntimeException e) {
+                // Check if this is a connection error
+                if (e.getMessage() != null && e.getMessage().startsWith("Connection error")) {
+                    // Connection error (broken pipe, connection reset, etc.) - attempt reconnection
+                    logger.warn("Connection error during polling: {} - attempting reconnection",
+                            e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "Connection error - reconnecting");
+                    disconnect();
+                    scheduler.schedule(this::connect, 5, TimeUnit.SECONDS);
+                } else {
+                    // Other runtime errors
+                    logger.debug("Runtime error during polling: {}", e.getMessage(), e);
+                }
             } catch (Exception e) {
-                logger.debug("Error during polling: {}", e.getMessage());
+                // Other unexpected errors - log but don't reconnect
+                logger.debug("Error during polling: {}", e.getMessage(), e);
             }
         }
     }
@@ -271,6 +286,12 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
                     logger.debug("Failed batch read at virtual {}", startAddress);
                 }
             } catch (Exception e) {
+                // Check if this is a connection error
+                if (isConnectionError(e)) {
+                    // Propagate connection errors to trigger reconnection
+                    throw new RuntimeException("Connection error: " + e.getMessage(), e);
+                }
+                // Log other errors but continue
                 logger.debug("Error batch reading virtual {}: {}", startAddress, e.getMessage());
             }
 
@@ -345,9 +366,38 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
                     logger.debug("Failed to read {} {} for lights", readType, readAddress);
                 }
             } catch (Exception e) {
+                // Check if this is a connection error
+                if (isConnectionError(e)) {
+                    // Propagate connection errors to trigger reconnection
+                    throw new RuntimeException("Connection error: " + e.getMessage(), e);
+                }
+                // Log other errors but continue
                 logger.debug("Error reading {} {} for lights: {}", readType, readAddress, e.getMessage());
             }
         }
+    }
+
+    /**
+     * Check if an exception is a connection error (broken pipe, connection reset, etc.)
+     *
+     * @param e the exception to check
+     * @return true if this is a connection error
+     */
+    private boolean isConnectionError(Exception e) {
+        if (e instanceof IOException) {
+            return true;
+        }
+
+        String message = e.getMessage();
+        if (message == null) {
+            return false;
+        }
+
+        // Check for common connection error messages
+        String lowerMessage = message.toLowerCase();
+        return lowerMessage.contains("broken pipe") || lowerMessage.contains("connection reset")
+                || lowerMessage.contains("connection closed") || lowerMessage.contains("socket closed")
+                || lowerMessage.contains("connection refused") || lowerMessage.contains("connection timed out");
     }
 
     /**
