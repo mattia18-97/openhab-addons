@@ -31,9 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import com.github.paolodenti.jsapp.core.command.Sapp74Command;
 import com.github.paolodenti.jsapp.core.command.Sapp75Command;
-import com.github.paolodenti.jsapp.core.command.Sapp7DCommand;
 import com.github.paolodenti.jsapp.core.command.Sapp7ECommand;
-import com.github.paolodenti.jsapp.core.command.base.SappCommand;
 import com.github.paolodenti.jsapp.core.command.base.SappConnection;
 
 /**
@@ -224,81 +222,50 @@ public class PicNetLightHandler extends BaseThingHandler {
     }
 
     /**
-     * Normal mode: write ON (1) or OFF (0) to the bit
+     * Normal mode: write ON (1) or OFF (0) to the bit using atomic operations
      */
     private void writeNormal(SappConnection connection, int virtualAddress, int bit, OnOffType command) {
-        try {
-            // Read current value from Virtual to preserve other bits
-            int currentValue = readVirtualWordSync(connection, virtualAddress);
-            if (currentValue < 0) {
-                logger.warn("Cannot read current value to modify bit {} on virtual {}", bit, virtualAddress);
-                return;
-            }
+        PicNetBridgeHandler localBridgeHandler = bridgeHandler;
+        if (localBridgeHandler == null) {
+            logger.warn("Bridge handler not available for writing");
+            return;
+        }
 
-            // Set bit based on command (ON=1, OFF=0)
-            boolean newBitValue = (command == OnOffType.ON);
-            int newValue = PicNetDataUtils.setBit(currentValue, bit, newBitValue);
+        // Use atomic bit operations (Sapp90Command for SET, Sapp91Command for CLEAR)
+        // This is more efficient and thread-safe than read-modify-write
+        boolean success;
+        if (command == OnOffType.ON) {
+            success = localBridgeHandler.setBitInVirtual(virtualAddress, bit);
+            logger.debug("Set light bit {} to ON on virtual {} - success: {}", bit, virtualAddress, success);
+        } else {
+            success = localBridgeHandler.clearBitInVirtual(virtualAddress, bit);
+            logger.debug("Set light bit {} to OFF on virtual {} - success: {}", bit, virtualAddress, success);
+        }
 
-            // Write back
-            SappCommand writeCommand = new Sapp7DCommand(virtualAddress, newValue);
-            writeCommand.run(connection);
-
-            if (writeCommand.isResponseOk()) {
-                logger.debug("Successfully set light bit {} to {} on virtual {}", bit, newBitValue ? "ON" : "OFF",
-                        virtualAddress);
-            } else {
-                logger.warn("Failed to write light command to virtual {}", virtualAddress);
-            }
-        } catch (Exception e) {
-            logger.warn("Error in normal write mode: {}", e.getMessage());
+        if (!success) {
+            logger.warn("Failed to write light command to virtual {} bit {}", virtualAddress, bit);
         }
     }
 
     /**
-     * Pulse mode: send a pulse (set bit to 1)
+     * Pulse mode: send a pulse (set bit to 1) using atomic operation
      */
     private void writePulse(SappConnection connection, int virtualAddress, int bit) {
-        try {
-            // Read current value
-            int currentValue = readVirtualWordSync(connection, virtualAddress);
-            if (currentValue < 0) {
-                logger.warn("Cannot read current value to send pulse on bit {} of virtual {}", bit, virtualAddress);
-                return;
-            }
-
-            // Set bit to 1 (pulse)
-            int pulseValue = PicNetDataUtils.setBit(currentValue, bit, true);
-            SappCommand pulseCommand = new Sapp7DCommand(virtualAddress, pulseValue);
-            pulseCommand.run(connection);
-
-            if (pulseCommand.isResponseOk()) {
-                logger.debug("Pulse sent to virtual {} bit {}", virtualAddress, bit);
-            } else {
-                logger.warn("Failed to send pulse to virtual {}", virtualAddress);
-            }
-        } catch (Exception e) {
-            logger.warn("Error in pulse mode: {}", e.getMessage());
+        PicNetBridgeHandler localBridgeHandler = bridgeHandler;
+        if (localBridgeHandler == null) {
+            logger.warn("Bridge handler not available for pulse");
+            return;
         }
-    }
 
-    /**
-     * Read virtual word synchronously (blocking)
-     */
-    private int readVirtualWordSync(SappConnection connection, int address) {
-        try {
-            Sapp7ECommand command = new Sapp7ECommand(address, (byte) 1);
-            command.run(connection);
+        // In pulse mode, always set bit to 1 (atomic operation)
+        // The PICnet logic will handle the pulse behavior
+        boolean success = localBridgeHandler.setBitInVirtual(virtualAddress, bit);
 
-            if (command.isResponseOk()) {
-                int[] values = command.getResponse().getDataAsWordArray();
-                if (values != null && values.length > 0) {
-                    return values[0];
-                }
-            }
-        } catch (Exception e) {
-            logger.debug("Error reading virtual {} for write-back: {}", address, e.getMessage());
+        if (success) {
+            logger.debug("Pulse sent to virtual {} bit {}", virtualAddress, bit);
+        } else {
+            logger.warn("Failed to send pulse to virtual {} bit {}", virtualAddress, bit);
         }
-        return -1;
     }
 
     /**

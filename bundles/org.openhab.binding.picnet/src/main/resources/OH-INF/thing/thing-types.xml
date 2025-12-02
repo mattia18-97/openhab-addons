@@ -373,6 +373,61 @@
 		</config-description>
 	</thing-type>
 
+	<!-- Alarm Thing Type -->
+	<thing-type id="alarm">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="bridge"/>
+		</supported-bridge-type-refs>
+
+		<label>PicNet Alarm</label>
+		<description>Alarm sensor in PicNet system (read-only, batch-optimized with Sapp72Command)</description>
+
+		<channels>
+			<channel id="alarm" typeId="system.alarm">
+				<label>Alarm Status</label>
+				<description>Alarm status (CLOSED=OK, OPEN=TRIGGERED)</description>
+			</channel>
+		</channels>
+
+		<config-description>
+			<parameter name="alarmNumber" type="integer" required="true" min="1" max="255">
+				<label>Alarm Number</label>
+				<description>Alarm number to monitor (1-255)</description>
+				<default>1</default>
+			</parameter>
+		</config-description>
+	</thing-type>
+
+	<!-- Alarm Group Thing Type -->
+	<thing-type id="alarm-group">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="bridge"/>
+		</supported-bridge-type-refs>
+
+		<label>PicNet Alarm Group</label>
+		<description>Master alarm monitoring a range of alarms (batch-optimized with Sapp72Command)</description>
+
+		<channels>
+			<channel id="master-alarm" typeId="system.alarm">
+				<label>Master Alarm Status</label>
+				<description>Master alarm status (CLOSED=all OK, OPEN=at least one alarm triggered)</description>
+			</channel>
+		</channels>
+
+		<config-description>
+			<parameter name="startAlarm" type="integer" required="true" min="1" max="255">
+				<label>Start Alarm Number</label>
+				<description>First alarm number to monitor (1-255)</description>
+				<default>1</default>
+			</parameter>
+			<parameter name="endAlarm" type="integer" required="true" min="1" max="255">
+				<label>End Alarm Number</label>
+				<description>Last alarm number to monitor (1-255)</description>
+				<default>255</default>
+			</parameter>
+		</config-description>
+	</thing-type>
+
 	<!-- Channel Types -->
 
 	<!-- Number Word Channel -->

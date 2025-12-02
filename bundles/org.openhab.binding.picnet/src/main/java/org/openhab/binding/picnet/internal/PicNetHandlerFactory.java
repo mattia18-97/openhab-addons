@@ -18,6 +18,8 @@ import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.picnet.internal.handler.PicNetAlarmGroupHandler;
+import org.openhab.binding.picnet.internal.handler.PicNetAlarmHandler;
 import org.openhab.binding.picnet.internal.handler.PicNetInputHandler;
 import org.openhab.binding.picnet.internal.handler.PicNetLightHandler;
 import org.openhab.binding.picnet.internal.handler.PicNetOutputHandler;
@@ -41,7 +43,7 @@ import org.osgi.service.component.annotations.Component;
 public class PicNetHandlerFactory extends BaseThingHandlerFactory {
 
     private static final Set<ThingTypeUID> SUPPORTED_THING_TYPES_UIDS = Set.of(BRIDGE_TYPE_PICNET, THING_TYPE_VIRTUAL,
-            THING_TYPE_INPUT, THING_TYPE_OUTPUT, THING_TYPE_LIGHT);
+            THING_TYPE_INPUT, THING_TYPE_OUTPUT, THING_TYPE_LIGHT, THING_TYPE_ALARM, THING_TYPE_ALARM_GROUP);
 
     @Override
     public boolean supportsThingType(ThingTypeUID thingTypeUID) {
@@ -62,6 +64,10 @@ public class PicNetHandlerFactory extends BaseThingHandlerFactory {
             return new PicNetOutputHandler(thing);
         } else if (THING_TYPE_LIGHT.equals(thingTypeUID)) {
             return new PicNetLightHandler(thing);
+        } else if (THING_TYPE_ALARM.equals(thingTypeUID)) {
+            return new PicNetAlarmHandler(thing);
+        } else if (THING_TYPE_ALARM_GROUP.equals(thingTypeUID)) {
+            return new PicNetAlarmGroupHandler(thing);
         }
 
         return null;

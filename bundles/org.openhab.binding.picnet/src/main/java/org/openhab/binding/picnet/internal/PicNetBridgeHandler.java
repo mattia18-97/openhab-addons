@@ -23,6 +23,8 @@ import java.util.concurrent.TimeUnit;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.picnet.internal.handler.PicNetAlarmGroupHandler;
+import org.openhab.binding.picnet.internal.handler.PicNetAlarmHandler;
 import org.openhab.binding.picnet.internal.handler.PicNetInputHandler;
 import org.openhab.binding.picnet.internal.handler.PicNetLightHandler;
 import org.openhab.binding.picnet.internal.handler.PicNetOutputHandler;
@@ -38,9 +40,12 @@ import org.openhab.core.types.Command;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.github.paolodenti.jsapp.core.command.Sapp72Command;
 import com.github.paolodenti.jsapp.core.command.Sapp74Command;
 import com.github.paolodenti.jsapp.core.command.Sapp75Command;
 import com.github.paolodenti.jsapp.core.command.Sapp7ECommand;
+import com.github.paolodenti.jsapp.core.command.Sapp90Command;
+import com.github.paolodenti.jsapp.core.command.Sapp91Command;
 import com.github.paolodenti.jsapp.core.command.base.SappConnection;
 
 /**
@@ -193,6 +198,8 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
                 List<PicNetInputHandler> inputHandlers = new ArrayList<>();
                 List<PicNetOutputHandler> outputHandlers = new ArrayList<>();
                 List<PicNetLightHandler> lightHandlers = new ArrayList<>();
+                List<PicNetAlarmHandler> alarmHandlers = new ArrayList<>();
+                List<PicNetAlarmGroupHandler> alarmGroupHandlers = new ArrayList<>();
 
                 for (Thing thing : getThing().getThings()) {
                     ThingHandler handler = thing.getHandler();
@@ -205,6 +212,10 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
                             outputHandlers.add(outputHandler);
                         } else if (handler instanceof PicNetLightHandler lightHandler) {
                             lightHandlers.add(lightHandler);
+                        } else if (handler instanceof PicNetAlarmHandler alarmHandler) {
+                            alarmHandlers.add(alarmHandler);
+                        } else if (handler instanceof PicNetAlarmGroupHandler alarmGroupHandler) {
+                            alarmGroupHandlers.add(alarmGroupHandler);
                         }
                     }
                 }
@@ -236,6 +247,12 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
                 // Poll Light handlers (grouped by readType and address)
                 if (!lightHandlers.isEmpty()) {
                     pollLights(localConnection, lightHandlers);
+                    Thread.sleep(50);
+                }
+
+                // Poll Alarm handlers and Alarm Group handlers (batch read up to 32 alarms at a time)
+                if (!alarmHandlers.isEmpty() || !alarmGroupHandlers.isEmpty()) {
+                    pollAlarmsBatch(localConnection, alarmHandlers, alarmGroupHandlers);
                     Thread.sleep(50);
                 }
 
@@ -400,6 +417,110 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
     }
 
     /**
+     * Poll alarms in batch (up to 32 alarms per request using Sapp72Command).
+     * Reads all 255 alarms and distributes to both individual alarm handlers and alarm group handlers.
+     */
+    private void pollAlarmsBatch(SappConnection connection, List<PicNetAlarmHandler> handlers,
+            List<PicNetAlarmGroupHandler> groupHandlers) {
+        if (handlers.isEmpty() && groupHandlers.isEmpty()) {
+            return;
+        }
+
+        // Array to store all 255 alarm statuses (index 0 = alarm 1, etc.)
+        byte[] allAlarmStatuses = new byte[255];
+        boolean[] alarmRead = new boolean[255];
+
+        // Determine which alarms need to be read
+        boolean[] needsReading = new boolean[256]; // 1-indexed for clarity
+        for (PicNetAlarmHandler handler : handlers) {
+            int alarmNum = handler.getAlarmNumber();
+            if (alarmNum >= 1 && alarmNum <= 255) {
+                needsReading[alarmNum] = true;
+            }
+        }
+        for (PicNetAlarmGroupHandler groupHandler : groupHandlers) {
+            int start = groupHandler.getStartAlarm();
+            int end = groupHandler.getEndAlarm();
+            for (int i = start; i <= end && i <= 255; i++) {
+                needsReading[i] = true;
+            }
+        }
+
+        // Read alarms in batches of up to 32
+        for (int startAlarm = 1; startAlarm <= 255;) {
+            // Skip alarms that don't need reading
+            while (startAlarm <= 255 && !needsReading[startAlarm]) {
+                startAlarm++;
+            }
+            if (startAlarm > 255) {
+                break;
+            }
+
+            // Find consecutive alarms that need reading (up to 32)
+            int count = 0;
+            for (int i = startAlarm; i <= 255 && count < 32; i++) {
+                if (needsReading[i]) {
+                    count++;
+                } else {
+                    break; // Stop at first non-needed alarm
+                }
+            }
+
+            if (count == 0) {
+                break;
+            }
+
+            // Batch read alarms using Sapp72Command
+            try {
+                Sapp72Command command = new Sapp72Command((byte) startAlarm, (byte) count);
+                command.run(connection);
+
+                if (command.isResponseOk()) {
+                    byte[] alarmStatuses = command.getResponse().getDataAsByteArray();
+                    if (alarmStatuses != null && alarmStatuses.length == count) {
+                        // Store alarm statuses in global array
+                        for (int j = 0; j < count; j++) {
+                            int alarmNum = startAlarm + j;
+                            if (alarmNum <= 255) {
+                                allAlarmStatuses[alarmNum - 1] = alarmStatuses[j];
+                                alarmRead[alarmNum - 1] = true;
+                            }
+                        }
+                        logger.trace("Batch read {} alarms starting from alarm {}", count, startAlarm);
+                    } else {
+                        logger.debug("Invalid response for batch alarm read starting at {}", startAlarm);
+                    }
+                } else {
+                    logger.debug("Failed batch alarm read starting at {}", startAlarm);
+                }
+            } catch (Exception e) {
+                // Check if this is a connection error
+                if (isConnectionError(e)) {
+                    // Propagate connection errors to trigger reconnection
+                    throw new RuntimeException("Connection error: " + e.getMessage(), e);
+                }
+                // Log other errors but continue
+                logger.debug("Error batch reading alarms starting at {}: {}", startAlarm, e.getMessage());
+            }
+
+            startAlarm += count;
+        }
+
+        // Distribute alarm statuses to individual alarm handlers
+        for (PicNetAlarmHandler handler : handlers) {
+            int alarmNum = handler.getAlarmNumber();
+            if (alarmNum >= 1 && alarmNum <= 255 && alarmRead[alarmNum - 1]) {
+                handler.updateAlarmChannel(allAlarmStatuses[alarmNum - 1] & 0xFF);
+            }
+        }
+
+        // Distribute alarm statuses to alarm group handlers
+        for (PicNetAlarmGroupHandler groupHandler : groupHandlers) {
+            groupHandler.updateMasterAlarmChannel(allAlarmStatuses);
+        }
+    }
+
+    /**
      * Check if an exception is a connection error (broken pipe, connection reset, etc.)
      *
      * @param e the exception to check
@@ -429,5 +550,82 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
      */
     public @Nullable SappConnection getConnection() {
         return connection;
+    }
+
+    /**
+     * Set a specific bit in a virtual address using atomic operation (Sapp90Command).
+     * This is more efficient and thread-safe than read-modify-write operations.
+     *
+     * @param virtualAddress the virtual address (1-2500)
+     * @param bitNumber the bit number to set (1-16)
+     * @return true if the operation was successful, false otherwise
+     */
+    public boolean setBitInVirtual(int virtualAddress, int bitNumber) {
+        synchronized (connectionLock) {
+            SappConnection localConnection = connection;
+            if (localConnection == null || !localConnection.isConnected()) {
+                logger.debug("Cannot set bit: connection not available");
+                return false;
+            }
+
+            try {
+                Sapp90Command command = new Sapp90Command(virtualAddress, bitNumber);
+                command.run(localConnection);
+                logger.trace("Set bit {} in virtual {} using atomic command", bitNumber, virtualAddress);
+                return true;
+            } catch (Exception e) {
+                if (isConnectionError(e)) {
+                    logger.warn("Connection error while setting bit in virtual {}: {}", virtualAddress, e.getMessage());
+                    // Trigger reconnection
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "Connection error - reconnecting");
+                    disconnect();
+                    scheduler.schedule(this::connect, 5, TimeUnit.SECONDS);
+                } else {
+                    logger.debug("Error setting bit {} in virtual {}: {}", bitNumber, virtualAddress, e.getMessage(),
+                            e);
+                }
+                return false;
+            }
+        }
+    }
+
+    /**
+     * Clear a specific bit in a virtual address using atomic operation (Sapp91Command).
+     * This is more efficient and thread-safe than read-modify-write operations.
+     *
+     * @param virtualAddress the virtual address (1-2500)
+     * @param bitNumber the bit number to clear (1-16)
+     * @return true if the operation was successful, false otherwise
+     */
+    public boolean clearBitInVirtual(int virtualAddress, int bitNumber) {
+        synchronized (connectionLock) {
+            SappConnection localConnection = connection;
+            if (localConnection == null || !localConnection.isConnected()) {
+                logger.debug("Cannot clear bit: connection not available");
+                return false;
+            }
+
+            try {
+                Sapp91Command command = new Sapp91Command(virtualAddress, bitNumber);
+                command.run(localConnection);
+                logger.trace("Cleared bit {} in virtual {} using atomic command", bitNumber, virtualAddress);
+                return true;
+            } catch (Exception e) {
+                if (isConnectionError(e)) {
+                    logger.warn("Connection error while clearing bit in virtual {}: {}", virtualAddress,
+                            e.getMessage());
+                    // Trigger reconnection
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                            "Connection error - reconnecting");
+                    disconnect();
+                    scheduler.schedule(this::connect, 5, TimeUnit.SECONDS);
+                } else {
+                    logger.debug("Error clearing bit {} in virtual {}: {}", bitNumber, virtualAddress, e.getMessage(),
+                            e);
+                }
+                return false;
+            }
+        }
     }
 }

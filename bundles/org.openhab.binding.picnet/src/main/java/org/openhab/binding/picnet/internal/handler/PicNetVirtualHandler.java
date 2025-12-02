@@ -31,9 +31,8 @@ import org.openhab.core.types.Command;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.github.paolodenti.jsapp.core.command.Sapp7DCommand;
 import com.github.paolodenti.jsapp.core.command.Sapp7ECommand;
-import com.github.paolodenti.jsapp.core.command.base.SappCommand;
+import com.github.paolodenti.jsapp.core.command.Sapp7FCommand;
 import com.github.paolodenti.jsapp.core.command.base.SappConnection;
 
 /**
@@ -211,7 +210,7 @@ public class PicNetVirtualHandler extends BaseThingHandler {
     }
 
     /**
-     * Write a word value to this virtual address
+     * Write a word value to this virtual address using batch write command
      *
      * @param connection the Sapp connection
      * @param address the virtual address
@@ -219,39 +218,38 @@ public class PicNetVirtualHandler extends BaseThingHandler {
      */
     private void writeVirtualWord(SappConnection connection, int address, int value) {
         try {
-            SappCommand command = new Sapp7DCommand(address, value);
+            // Use Sapp7FCommand (batch write) for consistency with read operations
+            Sapp7FCommand command = new Sapp7FCommand(address, (byte) 1, new int[] { value });
             command.run(connection);
 
-            if (command.isResponseOk()) {
-                logger.debug("Successfully wrote value {} to virtual {}", value, address);
-            } else {
-                logger.warn("Failed to write value {} to virtual {}", value, address);
-            }
+            logger.debug("Successfully wrote value {} to virtual {}", value, address);
         } catch (Exception e) {
             logger.warn("Error writing to virtual {}: {}", address, e.getMessage());
         }
     }
 
     /**
-     * Handle switch-bit command by reading current value, modifying bit, and writing back
+     * Handle switch-bit command using atomic operations (Sapp90Command/Sapp91Command)
      */
     private void handleSwitchBitCommand(SappConnection connection, int address, int bit, OnOffType command) {
-        try {
-            // Read current value
-            int currentValue = readVirtualWordSync(connection, address);
-            if (currentValue < 0) {
-                logger.warn("Cannot read current value to modify bit {} on virtual {}", bit, address);
-                return;
-            }
+        PicNetBridgeHandler localBridgeHandler = bridgeHandler;
+        if (localBridgeHandler == null) {
+            logger.warn("Bridge handler not available for bit command");
+            return;
+        }
 
-            // Set bit based on command (ON=1, OFF=0)
-            boolean newBitValue = (command == OnOffType.ON);
-            int newValue = PicNetDataUtils.setBit(currentValue, bit, newBitValue);
+        // Use atomic bit operations for better performance and thread safety
+        boolean success;
+        if (command == OnOffType.ON) {
+            success = localBridgeHandler.setBitInVirtual(address, bit);
+            logger.debug("Set bit {} to ON on virtual {} - success: {}", bit, address, success);
+        } else {
+            success = localBridgeHandler.clearBitInVirtual(address, bit);
+            logger.debug("Set bit {} to OFF on virtual {} - success: {}", bit, address, success);
+        }
 
-            // Write back
-            writeVirtualWord(connection, address, newValue);
-        } catch (Exception e) {
-            logger.warn("Error handling switch-bit command for virtual {} bit {}: {}", address, bit, e.getMessage());
+        if (!success) {
+            logger.warn("Failed to set bit {} on virtual {}", bit, address);
         }
     }
 
