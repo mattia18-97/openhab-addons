@@ -25,6 +25,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.picnet.internal.handler.PicNetAlarmGroupHandler;
 import org.openhab.binding.picnet.internal.handler.PicNetAlarmHandler;
+import org.openhab.binding.picnet.internal.handler.PicNetGateHandler;
 import org.openhab.binding.picnet.internal.handler.PicNetInputHandler;
 import org.openhab.binding.picnet.internal.handler.PicNetLightHandler;
 import org.openhab.binding.picnet.internal.handler.PicNetOutputHandler;
@@ -198,6 +199,7 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
                 List<PicNetInputHandler> inputHandlers = new ArrayList<>();
                 List<PicNetOutputHandler> outputHandlers = new ArrayList<>();
                 List<PicNetLightHandler> lightHandlers = new ArrayList<>();
+                List<PicNetGateHandler> gateHandlers = new ArrayList<>();
                 List<PicNetAlarmHandler> alarmHandlers = new ArrayList<>();
                 List<PicNetAlarmGroupHandler> alarmGroupHandlers = new ArrayList<>();
 
@@ -212,6 +214,8 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
                             outputHandlers.add(outputHandler);
                         } else if (handler instanceof PicNetLightHandler lightHandler) {
                             lightHandlers.add(lightHandler);
+                        } else if (handler instanceof PicNetGateHandler gateHandler) {
+                            gateHandlers.add(gateHandler);
                         } else if (handler instanceof PicNetAlarmHandler alarmHandler) {
                             alarmHandlers.add(alarmHandler);
                         } else if (handler instanceof PicNetAlarmGroupHandler alarmGroupHandler) {
@@ -247,6 +251,12 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
                 // Poll Light handlers (grouped by readType and address)
                 if (!lightHandlers.isEmpty()) {
                     pollLights(localConnection, lightHandlers);
+                    Thread.sleep(50);
+                }
+
+                // Poll Gate handlers (grouped by readType and address, only if status reading is configured)
+                if (!gateHandlers.isEmpty()) {
+                    pollGates(localConnection, gateHandlers);
                     Thread.sleep(50);
                 }
 
@@ -412,6 +422,91 @@ public class PicNetBridgeHandler extends BaseBridgeHandler {
                 }
                 // Log other errors but continue
                 logger.debug("Error reading {} {} for lights: {}", readType, readAddress, e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Poll gates (optimized by reading each address once and distributing to all gates)
+     * Only polls gates that have status reading configured
+     */
+    private void pollGates(SappConnection connection, List<PicNetGateHandler> handlers) {
+        if (handlers.isEmpty()) {
+            return;
+        }
+
+        // Filter only gates with status reading configured and group by readType and readAddress
+        Map<String, List<PicNetGateHandler>> gatesByAddress = new HashMap<>();
+        for (PicNetGateHandler handler : handlers) {
+            if (handler.hasStatusReading()) {
+                String key = handler.getReadType() + ":" + handler.getReadAddress();
+                gatesByAddress.computeIfAbsent(key, k -> new ArrayList<>()).add(handler);
+            }
+        }
+
+        if (gatesByAddress.isEmpty()) {
+            return; // No gates with status reading configured
+        }
+
+        // Read each address once and update all gates using it
+        for (Map.Entry<String, List<PicNetGateHandler>> entry : gatesByAddress.entrySet()) {
+            List<PicNetGateHandler> gatesOnThisAddress = entry.getValue();
+
+            // Get first handler to know readType and address
+            PicNetGateHandler firstHandler = gatesOnThisAddress.get(0);
+            int readAddress = firstHandler.getReadAddress();
+            String readType = firstHandler.getReadType();
+
+            try {
+                int wordValue = -1;
+
+                // Read based on type
+                switch (readType.toLowerCase()) {
+                    case "input":
+                        Sapp74Command inputCmd = new Sapp74Command((byte) readAddress);
+                        inputCmd.run(connection);
+                        if (inputCmd.isResponseOk()) {
+                            wordValue = inputCmd.getResponse().getDataAsWord();
+                        }
+                        break;
+                    case "output":
+                        Sapp75Command outputCmd = new Sapp75Command((byte) readAddress);
+                        outputCmd.run(connection);
+                        if (outputCmd.isResponseOk()) {
+                            wordValue = outputCmd.getResponse().getDataAsWord();
+                        }
+                        break;
+                    case "virtual":
+                        Sapp7ECommand virtualCmd = new Sapp7ECommand(readAddress, (byte) 1);
+                        virtualCmd.run(connection);
+                        if (virtualCmd.isResponseOk()) {
+                            int[] values = virtualCmd.getResponse().getDataAsWordArray();
+                            if (values != null && values.length > 0) {
+                                wordValue = values[0];
+                            }
+                        }
+                        break;
+                }
+
+                if (wordValue >= 0) {
+                    logger.trace("Read {} {} for {} gates: {}", readType, readAddress, gatesOnThisAddress.size(),
+                            wordValue);
+
+                    // Update all gates on this address
+                    for (PicNetGateHandler gateHandler : gatesOnThisAddress) {
+                        gateHandler.updateGateStatus(wordValue);
+                    }
+                } else {
+                    logger.debug("Failed to read {} {} for gates", readType, readAddress);
+                }
+            } catch (Exception e) {
+                // Check if this is a connection error
+                if (isConnectionError(e)) {
+                    // Propagate connection errors to trigger reconnection
+                    throw new RuntimeException("Connection error: " + e.getMessage(), e);
+                }
+                // Log other errors but continue
+                logger.debug("Error reading {} {} for gates: {}", readType, readAddress, e.getMessage());
             }
         }
     }

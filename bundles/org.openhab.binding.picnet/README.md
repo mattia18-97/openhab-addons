@@ -13,6 +13,7 @@ This binding supports the following thing types:
 - `input` - Input Module: Read-only access to input module states (1-250) with word values, bytes, and individual bits as contacts
 - `output` - Output Module: Read-only access to output module states (1-250) with word values, bytes, and individual bits as contacts
 - `light` - Light Control: Individual light control that reads status from Input/Output/Virtual and writes commands to Virtual addresses
+- `gate` - Gate Control: Gate/door control with optional status reading and pulse mode for momentary triggers
 - `alarm` - Alarm Sensor: Read-only access to alarm status (1-255) using batch-optimized Sapp72Command
 - `alarm-group` - Alarm Group: Master alarm monitoring a range of alarms (1-255), reports if ANY alarm is triggered
 
@@ -127,6 +128,38 @@ It reads the light status from an Input/Output/Virtual address and writes contro
 |------------|------|-------------|
 | switch | Switch | Turn the light on or off |
 
+### Gate (`gate`)
+
+The Gate thing provides control for gates, doors, or similar devices.
+It can **optionally** read status from an Input/Output/Virtual address and writes trigger commands to a Virtual address.
+If status reading is not configured, it operates in **command-only mode** (useful when you only need to trigger the gate without feedback).
+
+Typically uses **pulse mode** (momentary trigger) which is ideal for gate controllers.
+
+#### Configuration
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| readType | text | no | (empty) | Type of address to read status from: `input`, `output`, `virtual`, or empty for command-only |
+| readAddress | integer | no | 0 | Address to read the gate status from (1-250 for Input/Output, 1-2500 for Virtual, 0 if not used) |
+| readBit | integer | no | 1 | Bit number to read gate status from (1-16) |
+| virtualAddress | integer | yes | - | Virtual address to write gate commands to (1-2500) |
+| writeBit | integer | yes | 1 | Bit number to write gate commands to (1-16) |
+| pulseMode | boolean | no | true | Send a momentary pulse for gate trigger (typical for gates) |
+
+#### Channels
+
+| Channel ID | Type | Description |
+|------------|------|-------------|
+| switch | Switch | Trigger the gate (ON command triggers the gate) |
+
+#### Use Cases
+
+- **Command-only gate**: Leave `readType` empty - only sends trigger commands without status feedback
+- **Gate with status**: Configure `readType`, `readAddress`, and `readBit` to monitor gate position/status
+- **Pulse trigger**: Default `pulseMode=true` sends momentary pulse (set bit, wait 200ms, clear bit)
+- **Toggle mode**: Set `pulseMode=false` for persistent ON/OFF control
+
 ### Alarm (`alarm`)
 
 The Alarm thing provides read-only access to alarm sensors in the PicNet system.
@@ -207,6 +240,22 @@ Bridge picnet:bridge:controller "PicNet Controller" [ hostname="192.168.1.100", 
         pulseMode=true
     ]
 
+    // Gates
+    Thing gate mainGate "Main Gate" [
+        readType="input",
+        readAddress=3,
+        readBit=1,
+        virtualAddress=300,
+        writeBit=1,
+        pulseMode=true
+    ]
+
+    Thing gate garageGate "Garage Gate (command only)" [
+        virtualAddress=301,
+        writeBit=1,
+        pulseMode=true
+    ]
+
     // Alarm sensors
     Thing alarm frontDoorAlarm "Front Door Alarm" [ alarmNumber=1 ]
     Thing alarm motionAlarm "Motion Detector Alarm" [ alarmNumber=2 ]
@@ -225,6 +274,10 @@ Bridge picnet:bridge:controller "PicNet Controller" [ hostname="192.168.1.100", 
 // Light switches
 Switch LivingRoomLight "Living Room" { channel="picnet:light:controller:livingRoomLight:switch" }
 Switch KitchenLight "Kitchen" { channel="picnet:light:controller:kitchenLight:switch" }
+
+// Gates
+Switch MainGate "Main Gate" { channel="picnet:gate:controller:mainGate:switch" }
+Switch GarageGate "Garage Gate" { channel="picnet:gate:controller:garageGate:switch" }
 
 // Virtual address - full word control
 Number Virtual200_Word "Virtual 200 Word" { channel="picnet:virtual:controller:virtual200:word" }
@@ -258,6 +311,11 @@ sitemap picnet label="PicNet Control" {
     Frame label="Lights" {
         Switch item=LivingRoomLight
         Switch item=KitchenLight
+    }
+
+    Frame label="Gates" {
+        Switch item=MainGate icon="gate"
+        Switch item=GarageGate icon="garage"
     }
 
     Frame label="Sensors" {

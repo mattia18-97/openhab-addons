@@ -373,6 +373,62 @@
 		</config-description>
 	</thing-type>
 
+	<!-- Gate Thing Type (gate control with optional status) -->
+	<thing-type id="gate">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="bridge"/>
+		</supported-bridge-type-refs>
+
+		<label>PicNet Gate</label>
+		<description>Gate control (optionally reads status from Input/Output/Virtual, writes trigger commands to Virtual
+			address)</description>
+
+		<channels>
+			<channel id="switch" typeId="system.power">
+				<label>Gate Switch</label>
+				<description>Trigger the gate (typically momentary/pulse mode)</description>
+			</channel>
+		</channels>
+
+		<config-description>
+			<parameter name="readType" type="text" required="false">
+				<label>Read Type (Optional)</label>
+				<description>Type of address to read gate status from (leave empty for command-only mode)</description>
+				<options>
+					<option value="">None (Command Only)</option>
+					<option value="input">Input Module</option>
+					<option value="output">Output Module</option>
+					<option value="virtual">Virtual Address</option>
+				</options>
+				<default></default>
+			</parameter>
+			<parameter name="readAddress" type="integer" required="false" min="0" max="2500">
+				<label>Read Address (Optional)</label>
+				<description>Address to read the gate status from (1-250 for Input/Output, 1-2500 for Virtual, 0 if not used)</description>
+				<default>0</default>
+			</parameter>
+			<parameter name="readBit" type="integer" required="false" min="1" max="16">
+				<label>Read Bit Number (Optional)</label>
+				<description>Bit number to read gate status from (1-16)</description>
+				<default>1</default>
+			</parameter>
+			<parameter name="virtualAddress" type="integer" required="true" min="1" max="2500">
+				<label>Virtual Address</label>
+				<description>Virtual address to write gate trigger commands to (1-2500)</description>
+			</parameter>
+			<parameter name="writeBit" type="integer" required="true" min="1" max="16">
+				<label>Write Bit Number</label>
+				<description>Bit number to write gate commands to (1-16)</description>
+				<default>1</default>
+			</parameter>
+			<parameter name="pulseMode" type="boolean" required="false">
+				<label>Pulse Mode</label>
+				<description>Send a momentary pulse (typical for gates)</description>
+				<default>true</default>
+			</parameter>
+		</config-description>
+	</thing-type>
+
 	<!-- Alarm Thing Type -->
 	<thing-type id="alarm">
 		<supported-bridge-type-refs>

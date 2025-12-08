@@ -34,6 +34,7 @@ public class PicNetBindingConstants {
     public static final ThingTypeUID THING_TYPE_INPUT = new ThingTypeUID(BINDING_ID, "input");
     public static final ThingTypeUID THING_TYPE_OUTPUT = new ThingTypeUID(BINDING_ID, "output");
     public static final ThingTypeUID THING_TYPE_LIGHT = new ThingTypeUID(BINDING_ID, "light");
+    public static final ThingTypeUID THING_TYPE_GATE = new ThingTypeUID(BINDING_ID, "gate");
     public static final ThingTypeUID THING_TYPE_ALARM = new ThingTypeUID(BINDING_ID, "alarm");
     public static final ThingTypeUID THING_TYPE_ALARM_GROUP = new ThingTypeUID(BINDING_ID, "alarm-group");
 
